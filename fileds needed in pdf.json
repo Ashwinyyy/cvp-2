@@ -1,0 +1,56 @@
+
+    "Reports.txt": {
+    
+      "REPORT_NO": "fields[1]",
+      "VERSION_NO": "fields[2]",
+      "DATRECEIVED": "fields[3]",
+      "DATINTRECEIVED": "fields[4]",
+      "MAH_NO": "fields[5]",
+      "REPORT_TYPE_ENG": "fields[7]",
+      "GENDER_ENG": "fields[10]",
+      "AGE": "fields[12]",
+      "AGE_UNIT_ENG": "fields[14]",
+      "OUTCOME_ENG": "fields[17]",
+      "WEIGHT": "fields[19]",
+      "WEIGHT_UNIT_ENG": "fields[20]",
+      "HEIGHT": "fields[22]",
+      "HEIGHT_UNIT_ENG": "fields[23]",
+      "SERIOUSNESS_ENG": "fields[26]",
+      "DEATH": "fields[28]",
+      "DISABILITY": "fields[29]",
+      "CONGENITAL_ANOMALY": "fields[30]",
+      "LIFE_THREATENING": "fields[31]",
+      "HOSP_REQUIRED": "fields[32]",
+      "OTHER_MEDICALLY_IMP_COND": "fields[33]",
+      "REPORTER_TYPE_ENG": "fields[34]",
+      "SOURCE_ENG": "fields[37]",
+    },
+    "Reactions.txt": {
+      "DURATION": "fields[2]",
+      "DURATION_UNIT_ENG": "fields[3]",
+      "PT_NAME_ENG": "fields[5]",          // Adverse Reaction Term - English
+      "MEDDRA_VERSION": "fields[9]"
+    },
+    "Report_Links_LX.txt": {
+      "RECORD_TYPE_ENG": "fields[2]",
+      "REPORT_LINK_NO": "fields[4]"
+    },
+    "Report_Drug.txt": {
+      "DRUGNAME": "fields[3]",
+      "DRUGINVOLV_ENG": "fields[4]",
+      "ROUTEADMIN_ENG": "fields[6]",
+      "UNIT_DOSE_QTY": "fields[8]",
+      "DOSE_UNIT_ENG": "fields[9]",
+      "FREQ_TIME_UNIT_ENG": "fields[15]",
+      "THERAPY_DURATION": "fields[17]",
+      "THERAPY_DURATION_UNIT_ENG": "fields[18]",
+      "DOSAGEFORM_ENG": "fields[20]",
+     
+    },
+    "Report_Drug_Indication.txt": {
+      "DRUGNAME": "fields[3]",
+      "INDICATION_NAME_ENG": "fields[4]"
+      
+    }
+  
+  

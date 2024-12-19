@@ -1,0 +1,91 @@
+# Reading report_drug_indication.txt
+logging.info("Reading report_drug_indication.txt...")
+report_drug_indication_content = read_s3_file(input_bucket, report_drug_indication_file)
+
+# Initialize a dictionary to store indications for each report_id
+indication_report_data = {}
+
+if report_drug_indication_content:  # If the file has content
+    for line in report_drug_indication_content:
+        # Split the line into fields using '$' as the delimiter
+        fields = line.split('$')
+
+        # Check if the line has enough fields to process
+        if len(fields) > 1:
+            # Extract the report_id from field[1] and strip any whitespace
+            report_id = clean_string(fields[1]).strip()
+
+            # Extract drug name and indication (fields 3 and 4)
+            drug_name = clean_string(fields[3])
+            indication = clean_string(fields[4])
+
+            # If the report_id is not in the indication_report_data, initialize it
+            if report_id not in indication_report_data:
+                indication_report_data[report_id] = []
+
+            # Append the drug name and corresponding indication to the list for this report_id
+            indication_report_data[report_id].append((drug_name, indication))
+
+else:
+    logging.info("No content found in report_drug_indication.txt.")
+
+# Now, process the report_drug.txt to add the indications for each drug
+logging.info("Processing report_drug.txt...")
+for line in report_drug_content:
+    fields = line.split('$')
+    if len(fields) > 1:
+        report_id = clean_string(fields[1]).strip()
+
+        if report_id not in report_ids:
+            continue  # Skip if the report_id is not in the report_ids
+
+        # Accumulate drug names, appending with commas if multiple drugs exist
+        drug_names = clean_string(fields[3]).split(',')  # Split by commas in case of multiple drugs
+        drug_types = clean_string(fields[4])
+        dose_unit = clean_string(fields[9])
+        route_of_admin = clean_string(fields[6])
+        dosage_form = clean_string(fields[20])
+        dose_qty = clean_string(fields[8])
+        frequency = clean_string(fields[15])
+        therapy_time = clean_string(fields[17])
+        therapy_unit = clean_string(fields[18])
+
+        # If the report_id is in the indication_report_data, process the drugs and indications
+        if report_id in indication_report_data:
+            # Initialize the indication list with empty values for each drug
+            indication_list = [''] * len(drug_names)
+
+            # Loop through each drug in the report
+            for i, drug in enumerate(drug_names):
+                for indication_drug, indication in indication_report_data[report_id]:
+                    # Match drug names and append the corresponding indication
+                    if drug.strip() == indication_drug.strip():
+                        indication_list[i] = indication
+                        break
+
+            # Now update report_data with the corresponding indications
+            report_data[report_id]['drug_name_eng'] = ', '.join(drug_names)
+            report_data[report_id]['indication_eng'] = ', '.join(indication_list)
+
+            # Continue adding the rest of the drug data to the report_data
+            report_data[report_id]['drug_type_eng'] = drug_types
+            report_data[report_id]['dose_unit_eng'] = dose_unit
+            report_data[report_id]['route_eng'] = route_of_admin
+            report_data[report_id]['dosageform_eng'] = dosage_form
+            report_data[report_id]['unit_dose_qty'] = dose_qty
+            report_data[report_id]['freq_time_unit_eng'] = frequency
+            report_data[report_id]['therapy_duration'] = therapy_time
+            report_data[report_id]['therapy_duration_unit_eng'] = therapy_unit
+        else:
+            # If no indication is found, handle accordingly (empty indication list)
+            report_data[report_id]['drug_name_eng'] = ', '.join(drug_names)
+            report_data[report_id]['indication_eng'] = ', '.join([''] * len(drug_names))
+            report_data[report_id]['drug_type_eng'] = drug_types
+            report_data[report_id]['dose_unit_eng'] = dose_unit
+            report_data[report_id]['route_eng'] = route_of_admin
+            report_data[report_id]['dosageform_eng'] = dosage_form
+            report_data[report_id]['unit_dose_qty'] = dose_qty
+            report_data[report_id]['freq_time_unit_eng'] = frequency
+            report_data[report_id]['therapy_duration'] = therapy_time
+            report_data[report_id]['therapy_duration_unit_eng'] = therapy_unit
+

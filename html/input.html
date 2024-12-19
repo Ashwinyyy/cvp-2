@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        /* General Page Styles */
+        @page {
+            size: A4;
+            margin: 20mm;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        h1, h2 {
+            text-align: center;
+            margin: 5px 0;
+        }
+
+        .black-line {
+            border-top: 3px solid black;
+            margin: 10px 0;
+        }
+
+        .top-right-corner {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 300px;
+            display: grid;
+            grid-template-columns: auto auto;
+            column-gap: 10px;
+        }
+
+        .top-right-corner p {
+            margin: 0;
+        }
+
+        .top-right-corner .heading {
+            font-weight: bold;
+        }
+
+        .top-right-corner .value {
+            text-align: right;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+            table-layout: fixed;
+        }
+
+        th,
+        td {
+            border: 1px solid black;
+            padding: 6px;
+            text-align: center;
+            word-wrap: break-word;
+        }
+
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+
+        .section-heading {
+            font-weight: bold;
+            padding: 2px 6px;
+            text-align: left;
+            border: 1px solid black;
+            margin: 0;
+            display: inline-block;
+        }
+
+        .center {
+            text-align: center;
+        }
+
+        .left {
+            text-align: left;
+        }
+
+        .product-description,
+        .adverse-reaction-terms {
+            text-align: left;
+        }
+
+        .side-tables {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 20px;
+            margin-top: 10px;
+        }
+
+        .serious-table {
+            width: 30%; /* Adjust the width to allow more space for the side table */
+            text-align: center;
+            border-collapse: collapse;
+        }
+
+        .side-table {
+            width: 65%;
+            border-collapse: collapse;
+            table-layout: auto;
+        }
+
+        .side-table th,
+        .side-table td,
+        .serious-table th,
+        .serious-table td {
+            border: 1px solid black;
+            padding: 6px;
+            word-wrap: break-word;
+            text-align: center;
+        }
+
+        .side-table td:nth-child(odd),
+        .side-table th:nth-child(odd) {
+            text-align: right;
+            width: 60px;
+        }
+
+        .additional-text {
+            font-weight: normal;
+            font-size: 12px;
+            margin-left: 10px;
+            display: inline-block;
+        }
+
+        /* Print Specific Styles */
+        @media print {
+            body {
+                font-size: 10px; /* Adjust font size for printing */
+                margin: 0;
+            }
+
+            .top-right-corner {
+                display: none; /* Hide top-right corner during print */
+            }
+
+            table {
+                page-break-before: always; /* Ensure tables start on a new page */
+            }
+
+            .side-tables {
+                display: block;
+                margin: 0;
+            }
+
+            .section-heading {
+                page-break-before: always;
+            }
+
+            .serious-table,
+            .side-table {
+                width: 100%; /* Make side tables full width for better printing */
+            }
+
+            .product-info,
+            .adverse-reaction-terms {
+                width: 100%; /* Ensure product info and adverse reactions fit the page */
+            }
+
+            .product-description {
+                word-wrap: break-word;
+                max-width: 100%;
+            }
+
+            /* Optional: Scale down the entire page */
+            body {
+                zoom: 90%; /* Optional: Adjust zoom level for printing */
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="top-right-corner">
+        <span class="heading">Report Runtime:</span>
+        <span class="value">{{report_runtime}}</span>
+        <span class="heading">Initial Received Date:</span>
+        <span class="value">{{initial_received_date}}</span>
+        <span class="heading">Latest Received Date:</span>
+        <span class="value">{{latest_received_date}}</span>
+        <span class="heading">Total Number of Reports:</span>
+        <span class="value">{{no_of_reports}}</span>
+    </div>
+    <h1>Canada Vigilance</h1>
+    <h2>Summary of Reported Adverse Reactions</h2>
+    <div class="black-line"></div>
+    <div class="section-heading"> Report Information </div>
+    <span class="additional-text">***AER = Adverse Reaction Report</span>
+    <table class="centered-content">
+        <thead>
+            <tr>
+                <th>Adverse Reaction Report Number</th>
+                <th>Latest AER Version Number</th>
+                <th>Initial Received Date</th>
+                <th>Latest Received Date</th>
+                <th>Source of Report</th>
+                <th>Market Authorization Holder AER Number</th>
+                <th>Type of Report</th>
+                <th>Reporter Type</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>{{adverse_reaction_report_number}}</td>
+                <td>{{latest_aer_version_number}}</td>
+                <td class="value">{{initial_received_date}}</td>
+                <td class="value">{{latest_received_date}}</td>
+                <td>{{source_of_report}}</td>
+                <td>{{market_authorization_holder_aer_number}}</td>
+                <td>{{type_of_report}}</td>
+                <td>{{reporter_type}}</td>
+            </tr>
+        </tbody>
+    </table>
+    <!-- New Section with Tables (Serious Report) -->
+    <div class="side-tables">
+        <!-- Serious Report Table -->
+        <table class="serious-table">
+            <thead>
+                <tr>
+                    <th>Serious Report</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{{serious}}</td>
+                </tr>
+            </tbody>
+        </table>
+        <!-- Detailed Side Table -->
+        <table class="side-table">
+            <thead>
+                <tr>
+                    <th>Death</th>
+                    <td>{{death}}</td>
+                    <th>Disability</th>
+                    <td>{{disability}}</td>
+                    <th>Congenital Anomaly</th>
+                    <td>{{anomaly}}</td>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <th>Life Threatening</th>
+                    <td>{{life_threatening}}</td>
+                    <th>Hospitalization</th>
+                    <td>{{hospitalization}}</td>
+                    <th>Other Conditions</th>
+                    <td>{{other_conditions}}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    
+
+    <div class="section-heading">Patient Information</div>
+    <table class="centered-content">
+        <thead>
+            <tr>
+                <th>Age</th>
+                <th>Gender</th>
+                <th>Height</th>
+                <th>Weight</th>
+                <th style="width: 40%;">Report Outcome</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>{{age}}</td>
+                <td>{{gender}}</td>
+                <td class="value">{{height}}</td>
+                <td class="value">{{weight}}</td>
+                <td>{{report_outcome}}</td>
+            </tr>
+        </tbody>
+    </table>
+    <div class="section-heading">Link / Duplicate Report Information</div>
+    <table class="centered-content">
+        <thead>
+            <tr>
+                <th>Record Type</th>
+                <th>Link AER Number</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>{{record_type}}</td>
+                <td>{{link_aer_number}}</td>
+            </tr>
+        </tbody>
+    </table>
+    <div class="section-heading">Product Information</div>
+    <table class="product-info">
+        <thead>
+            <tr>
+                <th>Product Description</th>
+                <th>Health Product Role</th>
+                <th>Dosage Form</th>
+                <th>Route of Administration</th>
+                <th>Dose</th>
+                <th>Frequency</th>
+                <th>Therapy Duration</th>
+                <th>Indication(s)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="product-description">{{product_description}}</td>
+                <td>{{health_product_role}}</td>
+                <td>{{dosage_form}}</td>
+                <td>{{route_of_administration}}</td>
+                <td class="value">{{dose}}</td>
+                <td class="value">{{frequency}}</td>
+                <td>{{therapy_duration}}</td>
+                <td>{{indication}}</td>
+            </tr>
+        </tbody>
+    </table>
+    <div class="section-heading">Adverse Reaction Term Information</div>
+    <table>
+        <thead>
+            <tr>
+                <th>Adverse Reaction Term(s)</th>
+                <th>MedDRA Version</th>
+                <th>Reaction Duration</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="adverse-reaction-terms">{{adverse_reaction_terms}}</td>
+                <td>{{meddra_version}}</td>
+                <td>{{reaction_duration}}</td>
+            </tr>
+        </tbody>
+    </table>
+</body>
+
+</html>
+
+
+
+
