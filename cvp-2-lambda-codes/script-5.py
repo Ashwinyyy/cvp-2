@@ -122,6 +122,7 @@ def extract_report_data(report_ids, reports_content, reactions_content, report_l
                 'reporter_type_eng': clean_string(fields[34]),
                 'source_eng': clean_string(fields[37])
             }
+
     # Read reactions.txt
     for line in reactions_content:
         fields = line.split('$')
@@ -130,32 +131,21 @@ def extract_report_data(report_ids, reports_content, reactions_content, report_l
             continue  # Skip if the report_id is not in the report_ids
 
         # Accumulate drug names, appending with commas if multiple drugs exist
-                pt_name_eng = clean_string(fields[5])
-                meddra_version = clean_string(fields[9])
-                duration = clean_string(fields[2])
-                duration_unit_eng = clean_string(fields[3])
+        pt_name_eng = clean_string(fields[5])
+        meddra_version = clean_string(fields[9])
+        duration = clean_string(fields[2])
+        duration_unit_eng = clean_string(fields[3])
+        if 'pt_name_eng' in report_data[report_id]:
+            report_data[report_id]['pt_name_eng'] += ', ' + pt_name_eng
+            report_data[report_id]['meddra_version'] += ', ' + meddra_version
+            report_data[report_id]['duration'] += ', ' + duration
+            report_data[report_id]['duration_unit_eng'] += ', ' + duration_unit_eng
+        else:
+            report_data[report_id]['pt_name_eng'] = pt_name_eng
+            report_data[report_id]['meddra_version'] = meddra_version
+            report_data[report_id]['duration'] = duration
+            report_data[report_id]['duration_unit_eng'] = duration_unit_eng
 
-        # if 'reaction_eng' in report_data[report_id]:
-        #     report_data[report_id]['pt_name_eng'] += ', ' + adv_reaction_eng
-        #     report_data[report_id]['meddra_version'] += ', ' + meddra_version
-        #     report_data[report_id]['duration'] += ', ' + reaction_duration
-        # else:
-        #     report_data[report_id]['reaction_eng'] = adv_reaction_eng
-        #     report_data[report_id]['version'] = meddra_version
-        #     report_data[report_id]['duration'] = reaction_duration
-           # Use setdefault to initialize empty lists if the key doesn't exist
-               report_data[report_id].setdefault('pt_name_eng', []).append(pt_name_eng)
-               report_data[report_id].setdefault('meddra_version', []).append(meddra_version)
-               report_data[report_id].setdefault('duration', []).append(duration)
-               report_data[report_id].setdefault('duration_unit_eng', []).append(duration_unit_eng)  
-
-            
-    for report_id, data in report_data.items():
-        for key, value in data.items():
-            if isinstance(value, list):
-                report_data[report_id][key] = ','.join(value)
-    
-    logging.info(f"Extracted reactions for {len(report_data)} reports.")
         # report_data[report_id]['reaction_eng'] = clean_string(fields[5])
         # report_data[report_id]['version'] = clean_string(fields[9])
         # report_data[report_id]['duration'] = clean_string(fields[2])
@@ -164,19 +154,27 @@ def extract_report_data(report_ids, reports_content, reactions_content, report_l
     for line in report_links_content:
         fields = line.split('$')
         report_id = clean_string(fields[1]).strip()
-        if report_id in report_ids:
-            # continue  # Skip if the report_id is not in the report_ids
-           report_data[report_id]['record_type_eng'] = clean_string(fields[2])
-           report_data[report_id]['report_link_no'] = clean_string(fields[4])
+        record_type_eng = clean_string(fields[2]).strip()
+        report_link_no = clean_string(fields[4]).strip()
+        if report_id not in report_ids:
+            continue  # Skip if the report_id is not in the report_ids
+        
+        if not record_type_eng:
+            record_type_eng = 'No duplicate or linked report'
 
-        else:
-                # If no match, insert the "No duplicate or linked report" message
-                if report_id not in report_data:
-                    report_data[report_id] = {
-                        'record_type_eng': 'No duplicate or linked report',
-                        'report_link_no': 'No duplicate or linked report'
-                    }
-    
+        if not report_link_no:  
+            report_link_no = 'No duplicate or linked report'   
+        
+          # Update the report_data dictionary with the extracted or default values
+        if report_id not in report_data:
+            report_data[report_id] = {}  # Initialize the report_data entry if missing
+
+        report_data[report_id]['record_type_eng'] = record_type_eng
+        report_data[report_id]['report_link_no'] = report_link_no
+
+        # else
+        # report_data[report_id]['record_type_eng'] = clean_string(fields[2])
+        # report_data[report_id]['report_link_no'] = clean_string(fields[4])
 
     # Read report_drug_indication.txt
     # # Read report_drug_indication.txt
@@ -192,79 +190,103 @@ def extract_report_data(report_ids, reports_content, reactions_content, report_l
     #     # If there's a match, process the indication
     #     report_data[report_id]['indication_eng'] = fields[4] if len(fields) > 4 else ''
 
-#reading report_drug_indication.txt
-    # Read the file content
-    logging.info("Reading report_drug_indication.txt...")
-    report_drug_indication_content = read_s3_file(input_bucket, report_drug_indication_file)
 
+    # Create a dictionary to store the drug names for each report_id as a comma-separated string
+drug_names_dict = {}
 
-    # Initialize a set to store all report_ids found in the file
-    indication_report_ids = set()
-
-    if report_drug_indication_content:  # If the file has content
-        for line in report_drug_indication_content:
-            # Split the line into fields using '$' as the delimiter
-            fields = line.split('$')
-
-            # Check if the line has enough fields to process
-            if len(fields) > 1:
-                # Extract the report_id from field[1] and strip any whitespace
-                report_id = clean_string(fields[1]).strip()
-
-                # Skip the line if report_id is not in the report_ids list
-                if report_id not in report_ids:
-                    continue  # Skip if the report_id is not in the report_ids
-
-                # Add the report_id to the set of indication_report_ids
-                indication_report_ids.add(report_id)
-    else:
-        logging.info("No content found in report_drug_indication.txt.")
-
-    # Compare report_ids with indication_report_ids
-    logging.info("Comparing report_ids with report IDs from indication file...")
-    for report_id in report_ids:
-        if report_id in indication_report_ids:  # Proceed only if report_id exists in the indication file
-            # Get the corresponding line and extract the indication_eng field
-            for line in report_drug_indication_content:
-                fields = line.split('$')
-
-                # Check if the line is valid (contains more than one field)
-                if len(fields) > 1:
-                    # Extract the report_id from field[1] and check if it matches
-                    report_id_in_line = clean_string(fields[1]).strip()
-
-                    if report_id_in_line == report_id:
-                        # Add the clean indication_eng field to report_data
-                        report_data[report_id]['indication_eng'] = clean_string(fields[4])
+# Read and process report_drug.txt to accumulate drug names and other fields
+for line in report_drug_content:
+    fields = line.split('$')
+    if len(fields) > 1:
+        report_id = clean_string(fields[1]).strip()
+        
+        if report_id not in report_ids:
+            continue  # Skip if the report_id is not in the report_ids
+        
+        # Extract drug-related fields
+        drug_name = clean_string(fields[3])
+        drug_involvement = clean_string(fields[4])
+        route_admin = clean_string(fields[6])
+        unit_dose_qty = clean_string(fields[8])
+        dose_unit_eng = clean_string(fields[9])
+        freq_time_unit_eng = clean_string(fields[15])
+        therapy_duration = clean_string(fields[17])
+        therapy_duration_unit_eng = clean_string(fields[18])
+        
+        # Store drug names in the dictionary for each report_id as a comma-separated string
+        if report_id not in drug_names_dict:
+            drug_names_dict[report_id] = drug_name  # First drug name for this report_id
         else:
-            logging.info(f"Skipping report_id {report_id} as it is not in the indication file.")
+            # Append drug name with a comma if more than one drug name exists for this report_id
+            drug_names_dict[report_id] += ', ' + drug_name
 
-    
+        # Accumulate fields in report_data for the given report_id
+        if report_id not in report_data:
+            report_data[report_id] = {}
 
-            # report_data[report_id]['dose_unit_eng'] = clean_string(fields[9])
-            # report_data[report_id]['route_eng'] = clean_string(fields[6])
-            # report_data[report_id]['dosageform_eng'] = clean_string(fields[20])
-            # report_data[report_id]['unit_dose_qty'] = clean_string(fields[8])
-            # report_data[report_id]['freq_time_unit_eng'] = clean_string(fields[15])
-            # report_data[report_id]['therapy_duration'] = clean_string(fields[17])
-            # report_data[report_id]['therapy_duration_unit_eng'] = clean_string(fields[18])
+        if 'drug_name' in report_data[report_id]:
+            report_data[report_id]['drug_name'] += ', ' + drug_name
+            report_data[report_id]['drug_involvement'] += ', ' + drug_involvement
+            report_data[report_id]['route_admin'] += ', ' + route_admin
+            report_data[report_id]['unit_dose_qty'] += ', ' + unit_dose_qty
+            report_data[report_id]['dose_unit_eng'] += ', ' + dose_unit_eng
+            report_data[report_id]['freq_time_unit_eng'] += ', ' + freq_time_unit_eng
+            report_data[report_id]['therapy_duration'] += ', ' + therapy_duration
+            report_data[report_id]['therapy_duration_unit_eng'] += ', ' + therapy_duration_unit_eng
+        else:
+            report_data[report_id]['drug_name'] = drug_name
+            report_data[report_id]['drug_involvement'] = drug_involvement
+            report_data[report_id]['route_admin'] = route_admin
+            report_data[report_id]['unit_dose_qty'] = unit_dose_qty
+            report_data[report_id]['dose_unit_eng'] = dose_unit_eng
+            report_data[report_id]['freq_time_unit_eng'] = freq_time_unit_eng
+            report_data[report_id]['therapy_duration'] = therapy_duration
+            report_data[report_id]['therapy_duration_unit_eng'] = therapy_duration_unit_eng
+
+# Read and process report_drug_indication.txt to match indications with drug names
+logging.info("Reading report_drug_indication.txt...")
+report_drug_indication_content = read_s3_file(input_bucket, report_drug_indication_file)
+
+if report_drug_indication_content:
+    for line in report_drug_indication_content:
+        fields = line.split('$')
+        if len(fields) > 1:
+            report_id = clean_string(fields[1]).strip()
+            drug_name_eng = clean_string(fields[3]).strip()
+            indication = clean_string(fields[4]).strip()
+
+            # Skip if report_id is not in report_ids
+            if report_id not in report_ids:
+                continue
+
+            # Retrieve drug names for the current report_id from the drug_names_dict
+            drug_names_for_report = drug_names_dict.get(report_id, "").split(', ')
+
+            # Initialize an indication_eng entry if missing
+            if 'indication_eng' not in report_data[report_id]:
+                report_data[report_id]['indication_eng'] = ''
+
+            # Iterate over the drug names for the report and check if they match
+            for drug_name in drug_names_for_report:
+                if not drug_name.strip():
+                    continue  # Skip blank drug names
+                
+                # Check if the drug_name matches drug_name_eng in the indication file
+                if drug_name.lower() == drug_name_eng.lower():
+                    if report_data[report_id]['indication_eng']:
+                        report_data[report_id]['indication_eng'] += ', ' + indication
+                    else:
+                        report_data[report_id]['indication_eng'] = indication
+else:
+    logging.info("No content found in report_drug_indication.txt.")
+
+# Fill blank or unmatched indications
+for report_id in report_ids:
+    if 'indication_eng' not in report_data[report_id] or not report_data[report_id]['indication_eng']:
+        report_data[report_id]['indication_eng'] = 'No matching indication for the drugs'
 
 
-    # for line in report_drug_content:
-    #     fields = line.split('$')
-    #     if len(fields) > 1:
-    #         report_id = fields[1].strip()
-    #         if report_id not in report_ids:
-    #             continue  # Skip if the report_id is not in the report_ids
-    #         # Add the new data fields from report_drug.txt
-    #         report_data[report_id]['drug_name_eng'] = clean_string(fields[3] ) # DRUG_NAME_ENG
-    #         report_data[report_id]['drug_type_eng'] = clean_string(fields[4]  )# DRUG_TYPE_ENG
-    #         report_data[report_id]['dose_unit_eng'] = clean_string(fields[9])  # DOSE_UNIT_ENG
-    #         report_data[report_id]['route_eng'] = clean_string(fields[6] ) # ROUTE_ENG
-    #         report_data[report_id]['dose'] = clean_string(fields[8] ) # DOSE
-    #         report_data[report_id]['freq'] = clean_string(fields[11])  # FREQ
-    #         report_data[report_id]['therapy_duration'] = clean_string(fields[17] ) # DURATION
-
+           
     logging.info(f"Extracted data for {len(report_data)} report IDs.")
     return report_data
 
@@ -275,15 +297,20 @@ def generate_json_output(report_data):
     final_data = []
     for report_id, data in report_data.items():
         final_data. append({
-            "report_id": report_id,
             "report_no": data.get('report_no', ''),
             "version_no": data.get('version_no', ''),
             "datintreceived": data.get('datintreceived', ''),
             "datreceived": data.get('datreceived', ''),
-            "source_eng": data.get('source_eng', ''),
             "mah_no": data.get('mah_no', ''),
             "report_type_eng": data.get('report_type_eng', ''),
-            "reporter_type_eng": data.get('reporter_type_eng', ''),
+            "gender_eng": data.get('gender_eng', ''),
+            "age": data.get('age', ''),
+            "age_unit_eng": data.get('age_unit_eng', ''),
+            "outcome_eng": data.get('outcome_eng', ''),
+            "weight": data.get('weight', ''),
+            "weight_unit_eng": data.get('weight_unit_eng', ''),
+            "height": data.get('height', ''),
+            "height_unit_eng": data.get('height_unit_eng', ''),
             "seriousness_eng": data.get('seriousness_eng', ''),
             "death": data.get('death', ''),
             "disability": data.get('disability', ''),
@@ -291,30 +318,24 @@ def generate_json_output(report_data):
             "life_threatening": data.get('life_threatening', ''),
             "hospitalization": data.get('hospitalization', ''),
             "other_medically_imp_cond": data.get('other_medically_imp_cond', ''),
-            "age": data.get('age', ''),
-            'age_unit_eng': data.get('age_unit_eng', ''),
-            "gender_eng": data.get('gender_eng', ''),
-            "height": data.get('height', ''),
-            "height_unit_eng": data.get('height_unit_eng', ''),
-            "weight": data.get('weight', ''),
-            "weight_unit_eng": data.get('weight_unit_eng', ''),
-            "outcome_eng": data.get('outcome_eng', ''),
-
+            "reporter_type_eng": data.get('reporter_type_eng', ''),
+            "source_eng": data.get('source_eng', ''),
+            "pt_name_eng": data.get('pt_name_eng', ''),
+            "meddra_version": data.get('meddra_version', ''),
+            "duration": data.get('duration', ''),
+            "duration_unit_eng": data.get('duration_unit_eng', ''),
             "record_type_eng": data.get('record_type_eng', ''),
             "report_link_no": data.get('report_link_no', ''),
-            "drug_name_eng": data.get('drug_name_eng', ''),
-            "drug_type_eng": data.get('drug_type_eng', ''),
-            "route_eng": data.get('route_eng', ''),
-            "dosageform_eng": data.get('dosageform_eng', ''),
+            "drug_name": data.get('drug_name', ''),
+            "drug_involvement": data.get('drug_involvement', ''),
+            "route_admin": data.get('route_admin', ''),
             "unit_dose_qty": data.get('unit_dose_qty', ''),
             "dose_unit_eng": data.get('dose_unit_eng', ''),
             "freq_time_unit_eng": data.get('freq_time_unit_eng', ''),
             "therapy_duration": data.get('therapy_duration', ''),
             "therapy_duration_unit_eng": data.get('therapy_duration_unit_eng', ''),
-            "indication_eng": data.get('indication_eng', '')  # Indication left blank if not found
-            "reaction_eng": data.get('reaction_eng', ''),
-            "version": data.get('version', ''),
-            "duration": data.get('duration', ''),
+            "dosage_form_eng": data.get('dosage_form_eng', ''),
+            "indication_eng": data.get('indication_eng', '')
         })
 
     try:

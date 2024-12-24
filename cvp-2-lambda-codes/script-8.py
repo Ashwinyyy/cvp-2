@@ -94,22 +94,22 @@ def parse_drug_names(file_content):
 #to rmeove duplicaates from drugnames list
 def find_report_ids(drug_names, report_drug_content):
     logging.info(f"Finding REPORT_IDs for {len(drug_names)} drug names...")
-    report_ids = defaultdict(set)  # Use a set to automatically handle duplicates
-    drug_names_set = set(drug_names)  # Create a set for faster lookup
+    report_ids = defaultdict(list)  # Change to list for handling multiple fields
+    drug_names_set = set(drug_names)
     
     for line in report_drug_content:
         fields = line.split('$')
         if len(fields) > 1:
             drug_name = clean_string(fields[3]).strip().lower()
             report_id = clean_string(fields[1]).strip()
-            if drug_name in drug_names_set:  # Exact match
+            if drug_name in drug_names_set:
                 logging.debug(f"Match found for drug: {drug_name} with REPORT_ID: {report_id}")
-                report_ids[report_id].add(tuple(fields))  # Convert fields to a tuple to store in a set
+                report_ids[report_id].append(fields)  # Append the matching fields to the list
     
-    # Convert sets back to lists if needed
-    report_ids = {key: list(value) for key, value in report_ids.items()}
     logging.info(f"Found {len(report_ids)} unique report IDs matching the drug names.")
-    return report_ids    
+    return report_ids
+
+   
 
     
     
@@ -226,22 +226,21 @@ def extract_report_drug(report_ids, report_drug_content, report_data):
             report_id = clean_string(fields[1]).strip()
             
             if report_id in report_ids:
-                # Initialize a string for each field that can contain multiple values
+                # Ensure report_id exists in report_data
                 if report_id not in report_data:
                     report_data[report_id] = {}
-                
-                # Append drug details with commas if there are multiple occurrences
-                report_data[report_id].setdefault('drug_name', '').append(clean_string(fields[3]))
-                report_data[report_id].setdefault('drug_involvement', '').append(clean_string(fields[4]))
-                report_data[report_id].setdefault('route_admin', '').append(clean_string(fields[6]))
-                report_data[report_id].setdefault('unit_dose_qty', '').append(clean_string(fields[8]))
-                report_data[report_id].setdefault('dose_unit_eng', '').append(clean_string(fields[9]))
-                report_data[report_id].setdefault('freq_time_unit_eng', '').append(clean_string(fields[15]))
-                report_data[report_id].setdefault('therapy_duration', '').append(clean_string(fields[17]))
-                report_data[report_id].setdefault('therapy_duration_unit_eng', '').append(clean_string(fields[18]))
-                report_data[report_id].setdefault('dosage_form_eng', '').append(clean_string(fields[20]))
 
-    # Convert list values to comma-separated strings after the loop
+                # Append drug-related data
+                report_data[report_id].setdefault('drug_name', []).append(clean_string(fields[3]))
+                report_data[report_id].setdefault('drug_involvement', []).append(clean_string(fields[4]))
+                report_data[report_id].setdefault('route_admin', []).append(clean_string(fields[6]))
+                report_data[report_id].setdefault('unit_dose_qty', []).append(clean_string(fields[8]))
+                report_data[report_id].setdefault('dose_unit_eng', []).append(clean_string(fields[9]))
+                report_data[report_id].setdefault('freq_time_unit_eng', []).append(clean_string(fields[15]))
+                report_data[report_id].setdefault('therapy_duration', []).append(clean_string(fields[17]))
+                report_data[report_id].setdefault('therapy_duration_unit_eng', []).append(clean_string(fields[18]))
+
+    # Convert list values to comma-separated strings
     for report_id, data in report_data.items():
         for key, value in data.items():
             if isinstance(value, list):
@@ -249,6 +248,7 @@ def extract_report_drug(report_ids, report_drug_content, report_data):
     
     logging.info(f"Extracted drug data for {len(report_data)} reports.")
     return report_data
+
 
 
 def extract_report_indication(report_ids, report_drug_indication_content, report_data):
@@ -306,7 +306,8 @@ def extract_report_indication(report_ids, report_drug_indication_content, report
 # Function to extract report data concurrently
 def extract_report_data_concurrently(report_ids, report_drug_content, reports_content, report_drug_indication_content, report_links_content, reactions_content):
     logging.info("Extracting report data concurrently...")
-    report_data = defaultdict(dict)
+    # report_data = defaultdict(dict)
+    report_data = {}
     lock = threading.Lock()
 
     with ThreadPoolExecutor(max_workers=5) as executor:
@@ -416,7 +417,7 @@ async def main():
     logging.info("Extracting report data concurrently...")
     report_data = extract_report_data_concurrently(report_ids, report_drug_content, reports_content, report_drug_indication_content, report_links_content, reactions_content)
       
-
+    generate_json_output(report_data)
     logging.info(f"Completed report extraction for {len(report_data)} reports.")
 
 if __name__ == "__main__":

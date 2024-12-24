@@ -85,29 +85,46 @@ def clean_string(value):
 def parse_drug_names(file_content):
     logging.info("Parsing drug names...")
     drug_names = [line.strip().lower() for line in file_content if line.strip()]
-    logging.info(f"Parsed {len(drug_names)} drug names.")
+    logging.info(f"Parsed {len(drug_names)} drug names: {drug_names}")
     return drug_names
 
 
 
-# to rmeove duplicaates from drugnames list
+
+# To remove duplicates from drugnames list
 def find_report_ids(drug_names, report_drug_content):
     logging.info(f"Finding REPORT_IDs for {len(drug_names)} drug names...")
-    report_ids = defaultdict(list)  # Change to list for handling multiple fields
-    drug_names_set = set(drug_names)
+    
+    if not drug_names:
+        logging.warning("No drug names provided.")
+        return {}
+    
+    report_ids = defaultdict(list)  # This will store report IDs as keys and associated fields as values
+    drug_names_set = set(drug_names)  # Set for faster lookups
+    
+    logging.info(f"Loaded {len(drug_names_set)} unique drug names.")
 
     for line in report_drug_content:
         fields = line.split('$')
         if len(fields) > 1:
-            drug_name = clean_string(fields[3]).strip().lower()
+            drug_name = clean_string(fields[3]).strip()
             report_id = clean_string(fields[1]).strip()
+            
             if drug_name in drug_names_set:
                 logging.debug(f"Match found for drug: {drug_name} with REPORT_ID: {report_id}")
                 report_ids[report_id].append(fields)  # Append the matching fields to the list
-
+            else:
+                logging.debug(f"No match for drug: {drug_name}")
+        else:
+            logging.debug(f"Skipping line due to invalid format: {line}")
+    
+    # Check how many unique report IDs were found
     logging.info(f"Found {len(report_ids)} unique report IDs matching the drug names.")
+    
+    if not report_ids:
+        logging.warning("No matching report IDs found.")
+    
     return report_ids
-
 
 
 def extract_reports(report_ids, reports_content, report_data, lock):
@@ -149,37 +166,71 @@ def extract_reports(report_ids, reports_content, report_data, lock):
     return report_data
 
 
-def extract_report_drug(report_ids, report_drug_content, report_data, lock):
-    logging.info("Extracting drug data from report_drug.txt...")
+import logging
+
+
+def clean_string(input_string):
+    # This function should clean the string as needed, e.g., stripping unnecessary whitespace, etc.
+    return input_string.strip()
+
+
+def extract_report_data(report_ids, report_drug_content, report_drug_indication_content, report_data, lock):
+    logging.info("Extracting drug and indication data...")
+
+    # Collect drug names associated with the given report_ids list
+    drug_names_map = {}
+
+    # Process drug data
     for line in report_drug_content:
         fields = line.split('$')
+
+        # Check if there are enough fields to process
         if len(fields) > 1:
             report_id = clean_string(fields[1]).strip()
+
+            # Process the report only if the report_id exists in the report_ids list
             if report_id in report_ids:
                 with lock:  # Locking to avoid concurrency issues
+                    # Initialize report_data[report_id] if it doesn't exist
                     if report_id not in report_data:
-                        report_data[report_id] = {}
-                    report_data[report_id].setdefault('drug_name', []).append(clean_string(fields[3]).strip().lower())
-                    report_data[report_id].setdefault('drug_involvement', []).append(clean_string(fields[4]))
-                    report_data[report_id].setdefault('route_admin', []).append(clean_string(fields[6]))
-                    report_data[report_id].setdefault('unit_dose_qty', []).append(clean_string(fields[8]))
-                    report_data[report_id].setdefault('dose_unit_eng', []).append(clean_string(fields[9]))
-                    report_data[report_id].setdefault('freq_time_unit_eng', []).append(clean_string(fields[15]))
-                    report_data[report_id].setdefault('therapy_duration', []).append(clean_string(fields[17]))
-                    report_data[report_id].setdefault('therapy_duration_unit_eng', []).append(clean_string(fields[18]))
+                        logging.warning(f"Initializing report data for report_id: {report_id}")
+                        report_data[report_id] = {
+                            'drug_name': [],
+                            'drug_involvement': [],
+                            'route_admin': [],
+                            'unit_dose_qty': [],
+                            'dose_unit_eng': [],
+                            'freq_time_unit_eng': [],
+                            'therapy_duration': [],
+                            'therapy_duration_unit_eng': [],
+                            'indications': []
+                        }
+                    else:
+                        logging.info(f"Report data already initialized for report_id: {report_id}")
 
-    # Convert list values to comma-separated strings
-    for report_id, data in report_data.items():
-        for key, value in data.items():
-            if isinstance(value, list):
-                report_data[report_id][key] = ', '.join(value)
+                    # Append the data to the respective fields
+                    try:
+                        drug_name = clean_string(fields[3]).strip().lower()
+                        report_data[report_id]['drug_name'].append(drug_name)
+                        report_data[report_id]['drug_involvement'].append(clean_string(fields[4]))
+                        report_data[report_id]['route_admin'].append(clean_string(fields[6]))
+                        report_data[report_id]['unit_dose_qty'].append(clean_string(fields[8]))
+                        report_data[report_id]['dose_unit_eng'].append(clean_string(fields[9]))
+                        report_data[report_id]['freq_time_unit_eng'].append(clean_string(fields[15]))
+                        report_data[report_id]['therapy_duration'].append(clean_string(fields[17]))
+                        report_data[report_id]['therapy_duration_unit_eng'].append(clean_string(fields[18]))
 
-    logging.info(f"Extracted drug data for {len(report_data)} reports.")
-    return report_data
+                        # Collect drug names in drug_names_map for later comparison with indications
+                        if report_id not in drug_names_map:
+                            drug_names_map[report_id] = []
+                        drug_names_map[report_id].append(drug_name)
 
+                    except IndexError as e:
+                        logging.error(f"IndexError while processing line: {line}, error: {str(e)}")
+            else:
+                logging.info(f"Skipping report_id {report_id} as it's not in report_ids.")
 
-def extract_report_indication(report_ids, report_drug_indication_content, report_data, lock):
-    logging.info("Extracting indication data from report_drug_indication.txt...")
+    # Process indication data
     indications_map = {}
     for line in report_drug_indication_content:
         fields = line.split('$')
@@ -188,53 +239,69 @@ def extract_report_indication(report_ids, report_drug_indication_content, report
             drug_name_eng = clean_string(fields[3]).strip().lower()
             indication = clean_string(fields[4]).strip()
 
-            if report_id in report_data:
-                with lock:  # Locking to avoid concurrency issues
-                    if report_id not in indications_map:
-                        indications_map[report_id] = {}
+            # Check if report_id exists in drug_names_map for the given report_ids list
+            if report_id in drug_names_map:
+                if report_id not in indications_map:
+                    indications_map[report_id] = {}
+
+                # Only store the indication if the drug_name_eng is present in drug_names_map for the report_id
+                if drug_name_eng in drug_names_map[report_id]:
                     indications_map[report_id][drug_name_eng] = indication
 
+    # Compare and populate the indications for each report_id
     for report_id, drug_indications in indications_map.items():
         if report_id in report_data:
-            drug_names = report_data[report_id].get('drug_name', '').split(', ')
+            drug_names = report_data[report_id].get('drug_name', [])
 
             indications = []
             for drug_name in drug_names:
                 drug_name = drug_name.strip().lower()
+                # If indication is missing, append an empty string
                 indication = drug_indications.get(drug_name, '')
-                # Append the indication or a blank if none, keeping commas for consistency
-                indications.append(indication if indication else ' ')
+                indications.append(indication)
 
             with lock:  # Locking to avoid concurrency issues
                 report_data[report_id]['indications'] = ', '.join(indications)
 
-    logging.info(f"Extracted indication data for {len(report_data)} reports.")
-    return report_data
+    # Convert list values to comma-separated strings
+    for report_id, data in report_data.items():
+        for key, value in data.items():
+            if isinstance(value, list):
+                report_data[report_id][key] = ', '.join(value)
 
+    logging.info(f"Extracted data for {len(report_data)} reports.")
+    return report_data
 
 
 def extract_report_links(report_ids, report_links_content, report_data, lock):
     logging.info("Extracting report link data from report_links.txt...")
+
     for line in report_links_content:
         fields = line.split('$')
-        if len(fields) > 4:
-            record_type_eng = clean_string(fields[2]).strip()
-            report_link_no = clean_string(fields[4]).strip()
 
+        # Check if the line contains enough fields
+        if len(fields) > 4:
             report_id = clean_string(fields[1]).strip()
+
+            # Proceed only if the report_id is in the report_ids list
             if report_id in report_ids:
+                record_type_eng = clean_string(fields[2]).strip()
+                report_link_no = clean_string(fields[4]).strip()
+
                 with lock:  # Locking to avoid concurrency issues
+                    # If record_type_eng is empty in report_links.txt, set it to default
+                    if not record_type_eng:
+                        record_type_eng = 'No duplicate or linked report'
+
+                    # If report_link_no is empty in report_links.txt, set it to default
+                    if not report_link_no:
+                        report_link_no = 'No duplicate or linked report'
+
+                    # Add or update the fields in report_data
                     report_data[report_id]['record_type_eng'] = record_type_eng
                     report_data[report_id]['report_link_no'] = report_link_no
-            else:
-                with lock:  # Locking to avoid concurrency issues
-                    if report_id not in report_data:
-                        report_data[report_id] = {
-                            'record_type_eng': 'No duplicate or linked report',
-                            'report_link_no': 'No duplicate or linked report'
-                        }
 
-    logging.info(f"Extracted {len(report_data)} report links.")
+    logging.info(f"Extracted report link data for {len(report_data)} reports.")
     return report_data
 
 
@@ -267,24 +334,8 @@ def extract_reactions(report_ids, reactions_content, report_data, lock):
     return report_data
 
 
-# def extract_report_data_concurrently(report_ids, report_drug_content, reports_content, report_drug_indication_content,
-#                                      report_links_content, reactions_content):
-#     logging.info("Extracting report data concurrently...")
-#     report_data = defaultdict(dict)
-#     lock = threading.Lock()
-#
-#     with ThreadPoolExecutor(max_workers=5) as executor:
-#         executor.submit(extract_reports, report_ids, reports_content, report_data, lock)
-#         executor.submit(extract_report_drug, report_ids, report_drug_content, report_data, lock)
-#         executor.submit(extract_report_indication, report_ids, report_drug_indication_content, report_data, lock)
-#         executor.submit(extract_report_links, report_ids, report_links_content, report_data, lock)
-#         executor.submit(extract_reactions, report_ids, reactions_content, report_data, lock)
-#
-#     logging.info(f"Completed extraction for {len(report_data)} reports.")
-#     return report_data
 # Extracting report data concurrently using ThreadPoolExecutor and handling thread safety
-def extract_report_data_concurrently(report_ids, report_drug_content, reports_content, report_drug_indication_content,
-                                     report_links_content, reactions_content):
+def extract_report_data_concurrently(report_ids, report_drug_content, reports_content, report_links_content, report_drug_indication_content,  reactions_content):
     logging.info("Extracting report data concurrently...")
     report_data = defaultdict(dict)
     lock = threading.Lock()
@@ -292,8 +343,8 @@ def extract_report_data_concurrently(report_ids, report_drug_content, reports_co
     with ThreadPoolExecutor(max_workers=5) as executor:
         futures = []
         futures.append(executor.submit(extract_reports, report_ids, reports_content, report_data, lock))
-        futures.append(executor.submit(extract_report_drug, report_ids, report_drug_content, report_data, lock))
-        futures.append(executor.submit(extract_report_indication, report_ids, report_drug_indication_content, report_data, lock))
+        futures.append(executor.submit(report_ids, report_drug_content, report_drug_indication_content, report_data, lock))
+        # futures.append(executor.submit(extract_report_indication, report_ids, report_drug_indication_content, report_data, lock))
         futures.append(executor.submit(extract_report_links, report_ids, report_links_content, report_data, lock))
         futures.append(executor.submit(extract_reactions, report_ids, reactions_content, report_data, lock))
 
@@ -303,6 +354,7 @@ def extract_report_data_concurrently(report_ids, report_drug_content, reports_co
 
     logging.info(f"Completed extraction for {len(report_data)} reports.")
     return report_data
+
 
 # Step 4: Generate the JSON structure and save it to the output S3 bucket
 def generate_json_output(report_data):
@@ -353,31 +405,7 @@ def generate_json_output(report_data):
         })
     return final_data
 
-    # try:
-    #     json_data = json.dumps(final_data, indent=4)
-    #     timestamp = time.strftime('%Y%m%d-%H%M%S')
-    #     output_file = f"output_data_{timestamp}.json"
-    #     s3_client.put_object(Bucket=output_bucket, Key=output_file, Body=json_data)
-    #     logging.info(f"Successfully uploaded JSON file to S3: {output_file}")
-    # except Exception as e:
-    #     logging.error(f"Error generating or uploading JSON output: {e}")
-    # return final_data
 
-
-# # Save the output to S3
-# def save_output_to_s3(output_data):
-#     logging.info("Saving JSON output to S3...")
-#     output_key = f"Output/{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_output.json"
-#     try:
-#         s3_client = boto3.client('s3')
-#         s3_client.put_object(
-#             Bucket=output_bucket,
-#             Key=output_key,
-#             Body=json.dumps(output_data)
-#         )
-#         logging.info(f"Output saved to S3 at {output_key}.")
-#     except Exception as e:
-#         logging.error(f"Failed to save output to S3: {e}")
 # Save the output to S3
 def save_output_to_s3(output_data):
     logging.info("Saving JSON output to S3...")
@@ -425,9 +453,7 @@ async def main():
     report_ids = find_report_ids(drug_names, report_drug_content)
 
     logging.info("Extracting report data concurrently...")
-    report_data = extract_report_data_concurrently(report_ids, report_drug_content, reports_content,
-                                                   report_drug_indication_content, report_links_content,
-                                                   reactions_content)
+    report_data = extract_report_data_concurrently(report_ids, report_drug_content, report_drug_indication_content, reports_content, report_links_content, reactions_content)
 
     # Generate JSON output (you may already have this function for generating the JSON)
     generated_json_data = generate_json_output(report_data)
